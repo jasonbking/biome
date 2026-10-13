@@ -28,6 +28,12 @@ for (const arch of ARCHITECTURES) {
 	updateOptionalDependencies("android-%s", arch, "linux-%s-musl");
 }
 
+// illumos is only built for x64, and `process.platform` reports it as
+// "sunos", so the npm package must use that name to be installed, while the
+// build artifact produced by CI is named after the more recognizable
+// "illumos" target triple.
+updateOptionalDependencies("sunos-%s", "x64", "illumos-%s");
+
 for (const target of WASM_TARGETS) {
 	updateWasmPackage(target);
 }

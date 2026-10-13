@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const { platform, arch, env, version, release } = process;
-const { execSync } = require("child_process");
+const { execSync, spawnSync } = require("child_process");
 
 function isMusl() {
 	let stderr;
@@ -15,6 +15,27 @@ function isMusl() {
 		return true;
 	}
 	return false;
+}
+
+// node itself reports the os as 'sunos' despite 20+ years of divergence
+// from Solaris. Use output of `uname -o` to determine if we're really
+// running on an illumos distribution.
+function isIllumos() {
+	try {
+		if (platform !== "sunos") {
+			return false;
+		}
+
+		const child = spawnSync("/sbin/uname", ["-o"], {
+			encoding: "utf8",
+			timeout: 1000,
+			windowsHide: true,
+		});
+
+		return child.status === 0 && child.stdout?.trim() === "illumos";
+	} catch {
+		return false;
+	}
 }
 
 const PLATFORMS = {
@@ -38,12 +59,17 @@ const PLATFORMS = {
 		x64: "@biomejs/cli-android-x64/biome",
 		arm64: "@biomejs/cli-android-arm64/biome",
 	},
+	sunos: {
+		x64: "@biomejs/cli-sunos-x64/biome",
+	},
 };
 
 const binPath = env.BIOME_BINARY ||
 	(platform === "linux" && isMusl()
 		? PLATFORMS?.["linux-musl"]?.[arch]
-		: PLATFORMS?.[platform]?.[arch]
+		: platform === "sunos" && !isIllumos()
+			? undefined
+			: PLATFORMS?.[platform]?.[arch]
 	);
 
 if (binPath) {

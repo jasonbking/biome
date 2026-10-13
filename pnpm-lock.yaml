@@ -257,6 +257,9 @@ importers:
       '@biomejs/cli-linux-x64-musl':
         specifier: 2.5.15
         version: link:../cli-linux-x64-musl
+      '@biomejs/cli-sunos-x64':
+        specifier: 2.5.15
+        version: link:../cli-sunos-x64
       '@biomejs/cli-win32-arm64':
         specifier: 2.5.15
         version: link:../cli-win32-arm64
@@ -279,6 +282,8 @@ importers:
   packages/@biomejs/cli-linux-x64: {}
 
   packages/@biomejs/cli-linux-x64-musl: {}
+
+  packages/@biomejs/cli-sunos-x64: {}
 
   packages/@biomejs/cli-win32-arm64: {}
 

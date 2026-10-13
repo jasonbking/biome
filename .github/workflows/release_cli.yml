@@ -198,6 +198,85 @@ jobs:
           path: ./dist/biome-*
           if-no-files-found: error
 
+  # Build the illumos binary inside an OmniOS VM, since there is no cross-compilation
+  # toolchain readily available for this target.
+  build-illumos:
+    name: Package illumos-x64
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    needs: check
+    if: needs.check.outputs.version_changed == 'true' || needs.check.outputs.nightly == 'true'
+    env:
+      version: ${{ needs.check.outputs.version }}
+      CC: /opt/gcc-14/bin/gcc
+      CARGO_TARGET_X86_64_UNKNOWN_ILLUMOS_LINKER: /opt/gcc-14/bin/gcc
+    outputs:
+      version: ${{ env.version }}
+      prerelease: ${{ needs.check.outputs.prerelease }}
+
+    defaults:
+      run:
+        shell: cpa.sh {0}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Start VM
+        uses: cross-platform-actions/action@e0b9770014ba65d5e0815f15b74031c3a635f641 # v1.6.0
+        with:
+          operating_system: omnios
+          architecture: x86-64
+          version: 'r151058'
+          shell: bash
+          memory: 8G
+          cpu_count: 3
+          environment_variables: 'CC CARGO_TARGET_X86_64_UNKNOWN_ILLUMOS_LINKER'
+
+      - name: Install build dependencies
+        run: sudo pkg install -v developer/gcc14
+
+      - name: Install Rust
+        run: |
+          curl https://sh.rustup.rs -sSf --output rustup.sh
+          sh rustup.sh -y --profile minimal --default-toolchain "$(sed -n 's/channel = "\(.*\)"/\1/p' rust-toolchain.toml)"
+          source "$HOME/.cargo/env"
+          rustc --version
+
+      # Build the CLI binary
+      - name: Build binaries
+        run: |
+          source "$HOME/.cargo/env"
+          cargo build -p biome_cli --release --target x86_64-unknown-illumos
+        env:
+          # Strip all debug symbols from the resulting binaries
+          RUSTFLAGS: '-C strip=symbols -C codegen-units=1'
+          # Inline the version of the npm package in the CLI binary
+          BIOME_VERSION: ${{ env.version }}
+
+      # Copy the CLI binary and rename it to include the name of the target platform
+      - name: Copy CLI binary
+        run: |
+          mkdir dist
+          cp target/x86_64-unknown-illumos/release/biome ./dist/biome-illumos-x64
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ./dist/biome-*
+
+      # Upload the CLI binary as a build artifact
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cli-x86_64-unknown-illumos
+          path: ./dist/biome-*
+          if-no-files-found: error
+
   build-wasm:
     name: Build WASM
     runs-on: depot-ubuntu-24.04-arm-16
@@ -232,6 +311,7 @@ jobs:
     needs:
       - build
       - build-gnu
+      - build-illumos
       - build-wasm
     environment: npm-publish
     permissions:

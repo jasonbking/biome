@@ -104,7 +104,7 @@ serial_test          = "3.3.1"
 tests_macros         = { workspace = true }
 tokio                = { workspace = true, features = ["io-util"] }
 
-[target.'cfg(all(target_family="unix", not(all(target_arch = "aarch64", target_env = "musl"))))'.dependencies]
+[target.'cfg(all(target_family="unix", not(all(target_arch = "aarch64", target_env = "musl")), not(target_os = "illumos")))'.dependencies]
 tikv-jemallocator = { workspace = true }
 
 [target."cfg(unix)".dependencies]
